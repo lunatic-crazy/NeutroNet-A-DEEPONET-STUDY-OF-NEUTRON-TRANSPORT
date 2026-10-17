@@ -9,7 +9,7 @@ description = "DeepONet study of neutron transport in one-dimensional layered me
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
-authors = [{ name = "H. Rainad Khan Rohan" }]
+authors = [{ name = "Shahariar Siddique Shad" }]
 dependencies = [
     "numpy>=2.0",
     "torch>=2.0",

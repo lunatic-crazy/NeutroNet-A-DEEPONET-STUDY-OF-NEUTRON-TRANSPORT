@@ -8,7 +8,7 @@ NeutroNet is a DeepONet surrogate for the steady one-dimensional neutron transpo
 
 on a 100-cell, 10 cm slab. Reference solutions are generated with the included deterministic discrete-ordinates solver using an S32 angular quadrature, diamond-difference spatial discretization, source iteration, and vacuum boundaries. The benchmark uses bounded generated cross sections and is intended for research and reproducible operator-learning experiments.
 
-Author: **H. Rainad Khan Rohan**
+Author: **Shahariar Siddique Shad**
 
 ![Final model performance across in-distribution, three-layer, and unseen-source evaluations](results/final_model/figures/performance_summary.png)
 
