@@ -1,0 +1,16 @@
+{
+  "architecture": "separate_branch",
+  "loss": "relative_l2",
+  "latent_dim": 64,
+  "batch_size": 32,
+  "epochs": 1000,
+  "learning_rate": 0.0003,
+  "weight_decay": 1e-06,
+  "patience": 120,
+  "seed": 20260920,
+  "device": "cuda",
+  "device_used": "cuda",
+  "gpu_name": "NVIDIA GeForce GTX 1650 with Max-Q Design",
+  "training_samples": 2800,
+  "parameter_count": 137985
+}

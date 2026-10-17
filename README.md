@@ -41,12 +41,23 @@ No single error measure is sufficient, so the retained evaluation reports dimens
 
 MSE has squared-flux units; RMSE and MAE have flux units. NRMSE is normalized by target RMS. The JSON and CSV results additionally contain median and maximum absolute error, signed mean bias, interface MAE/RMSE, and relative-error percentiles. MAPE is intentionally omitted because near-zero boundary flux can make pointwise percentages unstable.
 
-The main limitation is three-layer material generalization: training used one- and two-layer cases, and performance drops on the three-layer out-of-distribution evaluation. This is a synthetic research benchmark, not a validated reactor-analysis or safety tool.
+The main limitation is three-layer material generalization: training used one- and two-layer cases, and performance drops on the three-layer out-of-distribution evaluation. This is a generated research benchmark, not a validated reactor-analysis or safety tool.
+
+## How the project works
+
+The project follows the complete path from a transport calculation to a trained surrogate and its evaluation:
+
+1. **Solve the transport equation.** [`transport.py`](src/deeponet_1d/transport.py) computes reference scalar flux with an S32 discrete-ordinates solver, diamond-difference spatial discretization, source iteration, and vacuum boundaries.
+2. **Create source and material fields.** [`sources.py`](src/deeponet_1d/sources.py) builds seven source shapes. [`materials.py`](src/deeponet_1d/materials.py) builds piecewise-constant cross sections for one- or two-layer training and in-distribution cases; the material OOD set has exactly three layers.
+3. **Build reference datasets.** [`dataset.py`](src/deeponet_1d/dataset.py) combines each source with a material profile, runs the solver, and stores inputs, flux targets, interfaces, source labels, and solver iteration counts. The dataset scripts create the saved splits in `data/final_model/`.
+4. **Train the operator model.** [`learning.py`](src/deeponet_1d/learning.py) loads the data and fits normalization from the training split. [`publication.py`](src/deeponet_1d/publication.py) defines the three input branches, feature fusion, coordinate trunk, and evaluation metrics. [`experiments.py`](src/deeponet_1d/experiments.py) trains with relative L2 loss, selects the checkpoint using validation data, and saves the model and predictions under `results/final_model/`.
+5. **Measure generalization.** The model is evaluated on held-out familiar cases, three-layer materials, and six source families absent from training. The evaluation scripts reproduce the metrics.
+6. **Create figures and tables.** The plotting scripts turn saved predictions and metrics into PNG/PDF figures and CSV summaries in `results/final_model/figures/`.
 
 ## Repository layout
 
 - `src/deeponet_1d/transport.py`: deterministic S_N reference solver.
-- `src/deeponet_1d/sources.py`: seven corrected training source generators.
+- `src/deeponet_1d/sources.py`: seven training source generators.
 - `src/deeponet_1d/materials.py`: physically constrained layered materials.
 - `src/deeponet_1d/dataset.py`: dataset construction with reference solves.
 - `src/deeponet_1d/publication.py`: separate-branch architecture and reporting metrics.
@@ -68,7 +79,7 @@ python -m pip install -e . --no-deps
 python -m unittest discover -s tests -v
 ```
 
-Regenerate the corrected datasets:
+Regenerate the final datasets:
 
 ```bash
 python scripts/generate_final_dataset.py \

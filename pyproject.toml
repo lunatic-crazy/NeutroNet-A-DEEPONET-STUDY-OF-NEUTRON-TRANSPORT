@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neutronet-transport"
+version = "1.0.0"
+description = "DeepONet study of neutron transport in one-dimensional layered media"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "H. Rainad Khan Rohan" }]
+dependencies = [
+    "numpy>=2.0",
+    "torch>=2.0",
+    "matplotlib>=3.8",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
