@@ -101,7 +101,7 @@ def plot_error_summary(
         )
     axis.set_xticks(positions, [LABELS[name] for name in families], rotation=22, ha="right")
     axis.set_ylabel(r"Relative $L_2$ error (%)")
-    axis.set_title("Frozen DeepONet performance on unseen source families")
+    axis.set_title("Prediction error by unseen source family")
     axis.grid(axis="y", color="#D9D9D9", linewidth=0.7, alpha=0.8, zorder=0)
     axis.spines[["top", "right"]].set_visible(False)
     axis.set_ylim(0.0, max(p95) * 1.18)
@@ -147,7 +147,7 @@ def plot_cases(
         if panel % 3 == 0:
             axis.set_ylabel(r"Scalar flux, $\phi(x)$")
         if panel >= 3:
-            axis.set_xlabel(r"Position, $x$")
+            axis.set_xlabel(r"Position, $x$ (cm)")
     handles, labels = axes.flat[0].get_legend_handles_labels()
     figure.legend(
         handles,

@@ -23,6 +23,12 @@ LABELS = {
     "step": "Step",
 }
 
+COLORS = {
+    "In distribution": "#0072B2",
+    "Three-layer OOD": "#D55E00",
+    "Unseen sources": "#009E73",
+}
+
 
 def save(figure: plt.Figure, destination: Path) -> None:
     figure.savefig(destination.with_suffix(".png"), dpi=300, bbox_inches="tight")
@@ -67,7 +73,7 @@ def main() -> None:
                 {"distribution": label, **{name: summary[name] for name in metric_columns}}
             )
 
-    colors = ["#4472C4", "#ED7D31", "#70AD47"]
+    colors = [COLORS[label] for label in split_labels]
     positions = np.arange(len(split_labels))
     figure, axes = plt.subplots(2, 2, figsize=(9.2, 6.6), constrained_layout=True)
     axes[0, 0].bar(positions, [item["mse"] for item in summaries], color=colors)
@@ -119,21 +125,21 @@ def main() -> None:
     for axis in axes.flat:
         axis.set_xticks(positions, split_labels, rotation=15, ha="right")
         axis.grid(axis="y", alpha=0.3)
-    figure.suptitle("Complementary final-model error metrics", fontweight="bold")
+    figure.suptitle("Prediction error across evaluation sets")
     save(figure, output / "error_metrics_dashboard")
     means = np.array([item["mean_relative_l2"] for item in summaries]) * 100
     medians = np.array([item["median_relative_l2"] for item in summaries]) * 100
     p95 = np.array([item["p95_relative_l2"] for item in summaries]) * 100
     x = np.arange(3)
     figure, axis = plt.subplots(figsize=(6.6, 3.8), constrained_layout=True)
-    bars = axis.bar(x, means, color=["#4472C4", "#ED7D31", "#70AD47"], width=0.62)
+    bars = axis.bar(x, means, color=colors, width=0.62)
     axis.scatter(x, medians, color="white", edgecolor="#222222", label="Median", zorder=3)
     axis.scatter(x, p95, marker="D", color="#7030A0", label="95th percentile", zorder=3)
     for bar, value in zip(bars, means, strict=True):
         axis.text(bar.get_x() + bar.get_width() / 2, value + 0.5, f"{value:.2f}%", ha="center")
     axis.set_xticks(x, split_labels)
     axis.set_ylabel(r"Relative $L_2$ error (%)")
-    axis.set_title("Corrected final-model performance")
+    axis.set_title("Relative flux error by evaluation set")
     axis.grid(axis="y", alpha=0.3)
     axis.legend(frameon=False)
     save(figure, output / "performance_summary")
@@ -142,14 +148,14 @@ def main() -> None:
     width = 0.36
     figure, axis = plt.subplots(figsize=(8.2, 4.2), constrained_layout=True)
     for offset, name, label, color in (
-        (-width / 2, split_names[0], "In distribution", "#4472C4"),
-        (width / 2, split_names[1], "Three-layer OOD", "#ED7D31"),
+        (-width / 2, split_names[0], "In distribution", COLORS["In distribution"]),
+        (width / 2, split_names[1], "Three-layer OOD", COLORS["Three-layer OOD"]),
     ):
         values = [metrics["splits"][name]["by_source_family"][family]["mean_relative_l2"] * 100 for family in families]
         axis.bar(np.arange(len(families)) + offset, values, width=width, label=label, color=color)
     axis.set_xticks(np.arange(len(families)), [LABELS[name] for name in families], rotation=24, ha="right")
     axis.set_ylabel(r"Mean relative $L_2$ error (%)")
-    axis.set_title("Performance by source family and material topology")
+    axis.set_title("Relative flux error by source family")
     axis.grid(axis="y", alpha=0.3)
     axis.legend(frameon=False)
     save(figure, output / "source_family_comparison")
@@ -186,10 +192,63 @@ def main() -> None:
             if column == 0:
                 axis.set_ylabel(r"Scalar flux, $\phi(x)$")
             if row == 1:
-                axis.set_xlabel(r"Position, $x$")
+                axis.set_xlabel(r"Position, $x$ (cm)")
     handles, labels = axes[0, 0].get_legend_handles_labels()
     figure.legend(handles, labels, loc="outside upper center", ncol=2, frameon=False)
     save(figure, output / "prediction_examples")
+
+    # Show the full case-to-case error distribution, rather than only aggregate
+    # means. The unseen-source predictions are stored in a separate archive.
+    error_sets = {
+        split_labels[0]: predictions["test_in_distribution_relative_l2"],
+        split_labels[1]: predictions["test_three_layer_ood_relative_l2"],
+    }
+    with np.load(args.run_dir / "unseen_source_ood_predictions.npz") as archive:
+        error_sets[split_labels[2]] = archive["relative_l2"]
+    figure, axis = plt.subplots(figsize=(6.4, 4.0), constrained_layout=True)
+    for label, values in error_sets.items():
+        ordered = np.sort(np.asarray(values)) * 100.0
+        probability = np.arange(1, len(ordered) + 1) / len(ordered)
+        axis.step(ordered, probability, where="post", label=label, color=COLORS[label])
+    axis.set_xlabel(r"Per-case relative $L_2$ error (%)")
+    axis.set_ylabel("Cumulative proportion of cases")
+    axis.set_title("Distribution of flux prediction errors")
+    axis.set_ylim(0.0, 1.0)
+    axis.grid(alpha=0.3)
+    axis.legend(frameon=False)
+    save(figure, output / "relative_error_cdf")
+
+    # Spatial absolute-error profiles summarize the location and spread of
+    # pointwise errors across cases. Bands are interquartile ranges, not CIs.
+    figure, axis = plt.subplots(figsize=(6.4, 4.0), constrained_layout=True)
+    for split, label in zip(split_names, split_labels[:2], strict=True):
+        truth = predictions[f"{split}_truth"]
+        prediction = predictions[f"{split}_prediction"]
+        with np.load(args.data_dir / f"{split}.npz") as data:
+            coordinates = np.asarray(data["x"])
+        coordinates = coordinates[0] if coordinates.ndim > 1 else coordinates
+        pointwise_error = np.abs(prediction - truth)
+        median = np.median(pointwise_error, axis=0)
+        lower, upper = np.percentile(pointwise_error, [25, 75], axis=0)
+        axis.plot(coordinates, median, label=label, color=COLORS[label])
+        axis.fill_between(coordinates, lower, upper, color=COLORS[label], alpha=0.16)
+    with np.load(args.run_dir / "unseen_source_ood_predictions.npz") as archive:
+        truth = archive["truth"]
+        prediction = archive["prediction"]
+    with np.load(args.data_dir / "test_unseen_sources.npz") as data:
+        coordinates = np.asarray(data["x"])
+    coordinates = coordinates[0] if coordinates.ndim > 1 else coordinates
+    pointwise_error = np.abs(prediction - truth)
+    median = np.median(pointwise_error, axis=0)
+    lower, upper = np.percentile(pointwise_error, [25, 75], axis=0)
+    axis.plot(coordinates, median, label=split_labels[2], color=COLORS[split_labels[2]])
+    axis.fill_between(coordinates, lower, upper, color=COLORS[split_labels[2]], alpha=0.16)
+    axis.set_xlabel(r"Position, $x$ (cm)")
+    axis.set_ylabel(r"Absolute flux error, $|\hat{\phi}-\phi|$")
+    axis.set_title("Median pointwise error (shading: interquartile range)")
+    axis.grid(alpha=0.3)
+    axis.legend(frameon=False)
+    save(figure, output / "spatial_absolute_error")
 
     for path in sorted(output.glob("*")):
         print(path)

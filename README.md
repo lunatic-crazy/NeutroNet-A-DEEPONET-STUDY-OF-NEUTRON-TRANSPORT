@@ -12,6 +12,12 @@ Author: **H. Rainad Khan Rohan**
 
 ![Final model performance across in-distribution, three-layer, and unseen-source evaluations](results/final_model/figures/performance_summary.png)
 
+Additional diagnostics show the case-wise relative-error distributions and the spatial distribution of pointwise flux error. Shading in the spatial profile marks the interquartile range across evaluated cases.
+
+![Case-wise relative L2 error distributions](results/final_model/figures/relative_error_cdf.png)
+
+![Spatial distribution of pointwise flux error](results/final_model/figures/spatial_absolute_error.png)
+
 ## Final model
 
 The final checkpoint uses three independent branch encoders for the source, total cross section, and scattering cross section. Their features are fused and combined with a coordinate trunk by the DeepONet dot product.
